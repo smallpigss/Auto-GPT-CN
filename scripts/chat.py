@@ -5,6 +5,7 @@ from config import Config
 import token_counter
 from llm_utils import create_chat_completion
 from logger import logger
+import locale
 import logging
 
 cfg = Config()
@@ -25,13 +26,22 @@ def create_chat_message(role, content):
 
 
 def generate_context(prompt, relevant_memory, full_message_history, model):
-    current_context = [
-        create_chat_message(
-            "system", prompt),
-        create_chat_message(
-            "system", f"The current time and date is {time.strftime('%c')}"),
-        create_chat_message(
-            "system", f"This reminds you of these events from your past:\n{relevant_memory}\n\n")]
+    if cfg.language == 'CN':
+        current_context = [
+            create_chat_message(
+                "system", prompt),
+            create_chat_message(
+                "system", f'当前的时间和日期是 {time.strftime("%Y{}%m{}%d{} %H:%M:%S").format("年","月","日")}'),
+            create_chat_message(
+                "system", f"这让你想起了你过去的这些事件:\n{relevant_memory}\n\n")]
+    else:
+        current_context = [
+            create_chat_message(
+                "system", prompt),
+            create_chat_message(
+                "system", f"The current time and date is {time.strftime('%c')}"),
+            create_chat_message(
+                "system", f"This reminds you of these events from your past:\n{relevant_memory}\n\n")]
 
     # Add messages from the full message history until we reach the token limit
     next_message_to_add_index = len(full_message_history) - 1
@@ -48,6 +58,7 @@ def chat_with_ai(
         full_message_history,
         permanent_memory,
         token_limit):
+    # print(prompt, user_input, full_message_history, permanent_memory, token_limit)
     """Interact with the OpenAI API, sending the prompt, user input, message history, and permanent memory."""
     while True:
         try:
@@ -123,6 +134,10 @@ def chat_with_ai(
             logger.debug("----------- END OF CONTEXT ----------------")
 
             # TODO: use a model defined elsewhere, so that model can contain temperature and other settings we care about
+            # logger.debug("=========================== Thinking Message =========================")
+            # for item in current_context:
+            #     logger.debug(item)
+            # logger.debug("=========================== Thinking Message =========================")
             assistant_reply = create_chat_completion(
                 model=model,
                 messages=current_context,

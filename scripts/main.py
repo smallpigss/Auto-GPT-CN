@@ -1,22 +1,21 @@
-import json
-import random
-import commands as cmd
-import utils
-from memory import get_memory, get_supported_memory_backends
-import chat
-from colorama import Fore, Style
-from spinner import Spinner
-import time
-import speak
-from config import Config
-from json_parser import fix_and_parse_json
-from ai_config import AIConfig
-import traceback
-import yaml
 import argparse
-from logger import logger
+import json
 import logging
-from prompt import get_prompt
+import traceback
+
+from colorama import Fore, Style
+
+import chat
+import commands as cmd
+import speak
+import utils
+from ai_config import AIConfig
+from config import Config
+from history import History
+from json_parser import fix_and_parse_json
+from logger import logger
+from memory import get_memory, get_supported_memory_backends
+from spinner import Spinner
 
 cfg = Config()
 
@@ -74,6 +73,7 @@ def print_assistant_thoughts(assistant_reply):
             assistant_reply_json = attempt_to_fix_json_by_finding_outermost_brackets(assistant_reply)
             assistant_reply_json = fix_and_parse_json(assistant_reply_json)
 
+        # print("response json ", assistant_reply_json)
         # Check if assistant_reply_json is a string and attempt to parse it into a JSON object
         if isinstance(assistant_reply_json, str):
             try:
@@ -86,6 +86,8 @@ def print_assistant_thoughts(assistant_reply):
         assistant_thoughts_plan = None
         assistant_thoughts_speak = None
         assistant_thoughts_criticism = None
+        if isinstance(assistant_reply_json, str):
+            print("reply json is string ", assistant_reply_json)
         assistant_thoughts = assistant_reply_json.get("thoughts", {})
         assistant_thoughts_text = assistant_thoughts.get("text")
 
@@ -95,11 +97,19 @@ def print_assistant_thoughts(assistant_reply):
             assistant_thoughts_criticism = assistant_thoughts.get("criticism")
             assistant_thoughts_speak = assistant_thoughts.get("speak")
 
-        logger.typewriter_log(f"{ai_name.upper()} THOUGHTS:", Fore.YELLOW, assistant_thoughts_text)
-        logger.typewriter_log("REASONING:", Fore.YELLOW, assistant_thoughts_reasoning)
+        if cfg.language == 'CN':
+            logger.typewriter_log(f"{ai_name.upper()} 的想法:", Fore.YELLOW, assistant_thoughts_text)
+            logger.typewriter_log("原因:", Fore.YELLOW, assistant_thoughts_reasoning)
+        else:
+            logger.typewriter_log(f"{ai_name.upper()} THOUGHTS:", Fore.YELLOW, assistant_thoughts_text)
+            logger.typewriter_log("REASONING:", Fore.YELLOW, assistant_thoughts_reasoning)
 
         if assistant_thoughts_plan:
-            logger.typewriter_log("PLAN:", Fore.YELLOW, "")
+            if cfg.language == 'CN':
+                logger.typewriter_log("计划:", Fore.YELLOW, "")
+            else:
+                logger.typewriter_log("PLAN:", Fore.YELLOW, "")
+
             # If it's a list, join it into a string
             if isinstance(assistant_thoughts_plan, list):
                 assistant_thoughts_plan = "\n".join(assistant_thoughts_plan)
@@ -112,7 +122,10 @@ def print_assistant_thoughts(assistant_reply):
                 line = line.lstrip("- ")
                 logger.typewriter_log("- ", Fore.GREEN, line.strip())
 
-        logger.typewriter_log("CRITICISM:", Fore.YELLOW, assistant_thoughts_criticism)
+        if cfg.language == 'CN':
+            logger.typewriter_log("自我批判:", Fore.YELLOW, assistant_thoughts_criticism)
+        else:
+            logger.typewriter_log("CRITICISM:", Fore.YELLOW, assistant_thoughts_criticism)
         # Speak the assistant's thoughts
         if cfg.speak_mode and assistant_thoughts_speak:
             speak.say_text(assistant_thoughts_speak)
@@ -142,6 +155,7 @@ def construct_prompt():
 Name:  {config.ai_name}
 Role:  {config.ai_role}
 Goals: {config.ai_goals}
+Language: {cfg.language}
 Continue (y/n): """)
         if should_continue.lower() == "n":
             config = AIConfig()
@@ -275,7 +289,7 @@ def parse_arguments():
 
 
 def main():
-    global ai_name, memory
+    global ai_name, memory, cfg
     # TODO: fill in llm values here
     check_openai_api_key()
     parse_arguments()
@@ -288,7 +302,10 @@ def main():
     result = None
     next_action_count = 0
     # Make a constant:
-    user_input = "Determine which next command to use, and respond using the format specified above:"
+    if cfg.language == 'CN':
+        user_input = "决定下一个命令将使用哪个，并且必须按照上面指定的格式返回:"
+    else:
+        user_input = "Determine which next command to use, and respond using the format specified above:"
     # Initialize memory and make sure it is empty.
     # this is particularly important for indexing and referencing pinecone memory
     memory = get_memory(cfg, init=True)
@@ -333,15 +350,21 @@ class Agent:
     def start_interaction_loop(self):
         # Interaction Loop
         loop_count = 0
+        history = History(self.ai_name)
+        self.full_message_history = history.load_history()
+        logger.debug("user input ", self.user_input)
+        logger.debug("full message history", json.dumps(self.full_message_history))
+        # logger.debug("memory ", json.dumps(self.memory.get_stats()))
         while True:
              # Discontinue if continuous limit is reached
             loop_count += 1
-            if cfg.continuous_mode and cfg.continuous_limit > 0 and loop_count > cfg.continuous_limit:
+            if cfg.continuous_mode and 0 < cfg.continuous_limit < loop_count:
                 logger.typewriter_log("Continuous Limit Reached: ", Fore.YELLOW, f"{cfg.continuous_limit}")
                 break
 
             # Send message to AI, get response
-            with Spinner("Thinking... "):
+            with Spinner("思考中... " if cfg.language == 'CN' else 'Thinking...'):
+                # print("prompt ", self.prompt)
                 assistant_reply = chat.chat_with_ai(
                     self.prompt,
                     self.user_input,
@@ -349,6 +372,9 @@ class Agent:
                     self.memory,
                     cfg.fast_token_limit)  # TODO: This hardcodes the model to use GPT3.5. Make this an argument
 
+            logger.debug("================= Response ====================")
+            logger.debug(str(assistant_reply))
+            logger.debug("================= Response ====================")
             # Print Assistant thoughts
             print_assistant_thoughts(assistant_reply)
 
@@ -367,10 +393,15 @@ class Agent:
                 # to exit
                 self.user_input = ""
                 logger.typewriter_log(
-                    "NEXT ACTION: ",
+                    "下一步: " if cfg.language == 'CN' else "NEXT ACTION: ",
                     Fore.CYAN,
-                    f"COMMAND = {Fore.CYAN}{command_name}{Style.RESET_ALL}  ARGUMENTS = {Fore.CYAN}{arguments}{Style.RESET_ALL}")
+                    f"命令 = {Fore.CYAN}{command_name}{Style.RESET_ALL}  参数= {Fore.CYAN}{arguments}{Style.RESET_ALL}"
+                    if cfg.language == 'CN' else
+                    f"COMMAND = {Fore.CYAN}{command_name}{Style.RESET_ALL}  ARGUMENTS = {Fore.CYAN}{arguments}{Style.RESET_ALL}"
+                )
                 print(
+                    f"输入 'y' 授权命令操作, 'y -N' 持续运行N次, 'n' 退出程序, 或者给 {self.ai_name} 输入反馈..."
+                    if cfg.language == 'CN' else
                     f"Enter 'y' to authorise command, 'y -N' to run N continuous commands, 'n' to exit program, or enter feedback for {self.ai_name}...",
                     flush=True)
                 while True:
@@ -405,9 +436,12 @@ class Agent:
             else:
                 # Print command
                 logger.typewriter_log(
-                    "NEXT ACTION: ",
+                    "下一步: " if cfg.language == 'CN' else "NEXT ACTION: ",
                     Fore.CYAN,
-                    f"COMMAND = {Fore.CYAN}{command_name}{Style.RESET_ALL}  ARGUMENTS = {Fore.CYAN}{arguments}{Style.RESET_ALL}")
+                    f"命令 = {Fore.CYAN}{command_name}{Style.RESET_ALL}  参数= {Fore.CYAN}{arguments}{Style.RESET_ALL}"
+                    if cfg.language == 'CN' else
+                    f"COMMAND = {Fore.CYAN}{command_name}{Style.RESET_ALL}  ARGUMENTS = {Fore.CYAN}{arguments}{Style.RESET_ALL}"
+                )
 
             # Execute command
             if command_name is not None and command_name.lower().startswith("error"):
@@ -415,7 +449,9 @@ class Agent:
             elif command_name == "human_feedback":
                 result = f"Human feedback: {self.user_input}"
             else:
-                result = f"Command {command_name} returned: {cmd.execute_command(command_name, arguments)}"
+                result = f"命令 {command_name} 返回结果: {cmd.execute_command(command_name, arguments)}" \
+                    if cfg.language == 'CN' else \
+                    f"Command {command_name} returned: {cmd.execute_command(command_name, arguments)}"
                 if self.next_action_count > 0:
                     self.next_action_count -= 1
 
@@ -429,12 +465,13 @@ class Agent:
             # history
             if result is not None:
                 self.full_message_history.append(chat.create_chat_message("system", result))
-                logger.typewriter_log("SYSTEM: ", Fore.YELLOW, result)
+                logger.typewriter_log("系统: " if cfg.language == 'CN' else "SYSTEM: ", Fore.BLUE, result)
             else:
                 self.full_message_history.append(
                     chat.create_chat_message(
                         "system", "Unable to execute command"))
-                logger.typewriter_log("SYSTEM: ", Fore.YELLOW, "Unable to execute command")
+                logger.typewriter_log("系统: " if cfg.language == 'CN' else "SYSTEM: ", Fore.BLUE, "Unable to execute command")
+            history.save_history(self.full_message_history)
 
 
 if __name__ == "__main__":

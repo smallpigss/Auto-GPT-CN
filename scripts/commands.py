@@ -183,7 +183,8 @@ def browse_website(url, question):
     if len(links) > 5:
         links = links[:5]
 
-    result = f"""Website Content Summary: {summary}\n\nLinks: {links}"""
+    result = f"""网站内容总结: {summary}\n\n链接: {links}""" \
+        if cfg.language == 'CN' else f"""Website Content Summary: {summary}\n\nLinks: {links}"""
 
     return result
 
@@ -192,7 +193,7 @@ def get_text_summary(url, question):
     """Return the results of a google search"""
     text = browse.scrape_text(url)
     summary = browse.summarize_text(text, question)
-    return """ "Result" : """ + summary
+    return """ "结果" : """ if cfg.language == 'CN' else """ "Result" : """ + summary
 
 
 def get_hyperlinks(url):

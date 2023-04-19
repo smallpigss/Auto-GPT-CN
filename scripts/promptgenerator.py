@@ -1,4 +1,7 @@
 import json
+from config import Config
+
+cfg = Config()
 
 
 class PromptGenerator:
@@ -16,11 +19,11 @@ class PromptGenerator:
         self.performance_evaluation = []
         self.response_format = {
             "thoughts": {
-                "text": "thought",
-                "reasoning": "reasoning",
+                "text": "thought, such as will use 'google'",
+                "reasoning": "reasoning, such as will use 'google'",
                 "plan": "- short bulleted\n- list that conveys\n- long-term plan",
-                "criticism": "constructive self-criticism",
-                "speak": "thoughts summary to say to user"
+                "criticism": "constructive self-criticism, such as will use 'google'"
+                # "speak": "thoughts summary to say to user"
             },
             "command": {
                 "name": "command name",
@@ -118,12 +121,22 @@ class PromptGenerator:
             str: The generated prompt string.
         """
         formatted_response_format = json.dumps(self.response_format, indent=4)
-        prompt_string = (
-            f"Constraints:\n{self._generate_numbered_list(self.constraints)}\n\n"
-            f"Commands:\n{self._generate_numbered_list(self.commands, item_type='command')}\n\n"
-            f"Resources:\n{self._generate_numbered_list(self.resources)}\n\n"
-            f"Performance Evaluation:\n{self._generate_numbered_list(self.performance_evaluation)}\n\n"
-            f"You should only respond in JSON format as described below \nResponse Format: \n{formatted_response_format} \nEnsure the response can be parsed by Python json.loads"
-        )
+        if cfg.language == "CN":
+            prompt_string = (
+                f"限制条件:\n{self._generate_numbered_list(self.constraints)}\n\n"
+                f"命令:\n{self._generate_numbered_list(self.commands, item_type='command')}\n\n"
+                f"资源:\n{self._generate_numbered_list(self.resources)}\n\n"
+                f"业绩评估:\n{self._generate_numbered_list(self.performance_evaluation)}\n\n"
+                f"你应该只用JSON格式来回应, 如下所述\n返回格式: \n{formatted_response_format} \n确保响应可以被Python json.load解析。\n必须严格符合以上json的样本格式。\n用你的答案来替换commands中的变量，这些变量都是由'<>'包含,一定保证变量被替换\n所有的答案都用中文返回"
+            )
+        else:
+            prompt_string = (
+                f"Constraints:\n{self._generate_numbered_list(self.constraints)}\n\n"
+                f"Commands:\n{self._generate_numbered_list(self.commands, item_type='command')}\n\n"
+                f"Resources:\n{self._generate_numbered_list(self.resources)}\n\n"
+                f"Performance Evaluation:\n{self._generate_numbered_list(self.performance_evaluation)}\n\n"
+                f"You must only respond in JSON format as described below \nResponse Format: \n{formatted_response_format} \nEnsure the response can be parsed by Python json.loads\nMust strictly conform to the sample json format above\nUse your answer to replace the variables in commands, all of which are contained by <>\n"
+            )
 
+        # print(prompt_string)
         return prompt_string

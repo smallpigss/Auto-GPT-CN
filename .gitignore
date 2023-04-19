@@ -24,3 +24,7 @@ htmlcov/
 
 # For Macs Dev Environs: ignoring .Desktop Services_Store
 .DS_Store
+
+logs/
+redis-data/
+scripts/auto_gpt_workspace/

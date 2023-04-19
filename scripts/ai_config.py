@@ -1,6 +1,9 @@
 import yaml
 import os
 from prompt import get_prompt
+from config import Config
+
+cfg = Config()
 
 
 class AIConfig:
@@ -13,7 +16,7 @@ class AIConfig:
         ai_goals (list): The list of objectives the AI is supposed to complete.
     """
 
-    def __init__(self, ai_name: str="", ai_role: str="", ai_goals: list=[]) -> None:
+    def __init__(self, ai_name: str="", ai_role: str="", ai_goals: list=[], ai_language="En") -> None:
         """
         Initialize a class instance
 
@@ -28,6 +31,7 @@ class AIConfig:
         self.ai_name = ai_name
         self.ai_role = ai_role
         self.ai_goals = ai_goals
+        self.ai_language = ai_language
 
     # Soon this will go in a folder where it remembers more stuff about the run(s)
     SAVE_FILE = os.path.join(os.path.dirname(__file__), '..', 'ai_settings.yaml')
@@ -55,8 +59,9 @@ class AIConfig:
         ai_name = config_params.get("ai_name", "")
         ai_role = config_params.get("ai_role", "")
         ai_goals = config_params.get("ai_goals", [])
+        ai_language = config_params.get("ai_language", "En")
 
-        return cls(ai_name, ai_role, ai_goals)
+        return cls(ai_name, ai_role, ai_goals, ai_language)
 
     def save(self, config_file: str=SAVE_FILE) -> None:
         """
@@ -84,10 +89,17 @@ class AIConfig:
             full_prompt (str): A string containing the initial prompt for the user including the ai_name, ai_role and ai_goals.
         """
 
-        prompt_start = """Your decisions must always be made independently without seeking user assistance. Play to your strengths as an LLM and pursue simple strategies with no legal complications."""
+        if cfg.language == "CN":
+            prompt_start = """你的决定必须始终是独立做出的，无需寻求用户的帮助。发挥你作为法学硕士的优势，追求简单的策略，没有法律上的复杂问题。"""
+        else:
+            prompt_start = """Your decisions must always be made independently without seeking user assistance. Play to your strengths as an LLM and pursue simple strategies with no legal complications."""
 
         # Construct full prompt
-        full_prompt = f"You are {self.ai_name}, {self.ai_role}\n{prompt_start}\n\nGOALS:\n\n"
+        if cfg.language == "CN":
+            full_prompt = f"你是 {self.ai_name}, {self.ai_role}\n{prompt_start}\n\n目标:\n\n"
+        else:
+            full_prompt = f"You are {self.ai_name}, {self.ai_role}\n{prompt_start}\n\nGOALS:\n\n"
+
         for i, goal in enumerate(self.ai_goals):
             full_prompt += f"{i+1}. {goal}\n"
 

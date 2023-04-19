@@ -17,8 +17,8 @@ JSON_SCHEMA = """
     },
     "thoughts":
     {
-        "text": "thought",
-        "reasoning": "reasoning",
+        "text": "thought, such as will use 'google'",
+        "reasoning": "reasoning, such as will use 'google'",
         "plan": "- short bulleted\n- list that conveys\n- long-term plan",
         "criticism": "constructive self-criticism",
         "speak": "thoughts summary to say to user"
