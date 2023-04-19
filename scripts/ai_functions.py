@@ -17,7 +17,8 @@ def evaluate_code(code: str) -> List[str]:
 
     function_string = "def analyze_code(code: str) -> List[str]:"
     args = [code]
-    description_string = """Analyzes the given code and returns a list of suggestions for improvements."""
+    description_string = """分析给定的代码并返回一个改进建议的列表。""" \
+        if cfg.language == 'CN' else """Analyzes the given code and returns a list of suggestions for improvements."""
 
     result_string = call_ai_function(function_string, args, description_string)
 
@@ -39,7 +40,9 @@ def improve_code(suggestions: List[str], code: str) -> str:
         "def generate_improved_code(suggestions: List[str], code: str) -> str:"
     )
     args = [json.dumps(suggestions), code]
-    description_string = """Improves the provided code based on the suggestions provided, making no other changes."""
+    description_string = """根据提供的建议改进所提供的代码，不做其他改动。""" \
+        if cfg.language == 'CN' \
+        else """Improves the provided code based on the suggestions provided, making no other changes."""
 
     result_string = call_ai_function(function_string, args, description_string)
     return result_string
@@ -60,7 +63,9 @@ def write_tests(code: str, focus: List[str]) -> str:
         "def create_test_cases(code: str, focus: Optional[str] = None) -> str:"
     )
     args = [code, json.dumps(focus)]
-    description_string = """Generates test cases for the existing code, focusing on specific areas if required."""
+    description_string = """为现有代码生成测试用例，如果需要的话，将重点放在特定领域。""" \
+        if cfg.language == 'CN' \
+        else """Generates test cases for the existing code, focusing on specific areas if required."""
 
     result_string = call_ai_function(function_string, args, description_string)
     return result_string
